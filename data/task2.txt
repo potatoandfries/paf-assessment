@@ -1,0 +1,116 @@
+Write your Task 2 answers in this file:
+For Mac;
+$ mongoimport --uri=mongodb://<host>:<port>?authSource=admin --file=/path/to/listings.json -d=bedandbreakfast -c=listings_and_reviews --type=json
+For PC:
+//change file path if necessary*
+mongoimport.exe -h localhost --port 27017 -d bedandbreakfast -c listing_and_reviews --jsonArray json\listings.json
+
+Task 2.2:
+db.listings_and_reviews.find({
+  "address.country": {
+    $regex: /Australia/i
+  }
+}).forEach(function(doc) {
+  db.listings.insert(doc);
+});
+
+Task 2.3:
+
+db.listings.aggregate([
+  {
+    $unwind: "$reviews"
+  },
+  {
+    $set: {
+      "reviews.comments": {
+        $replaceAll: {
+          input: "$reviews.comments",
+          find: "\n",
+          replacement: ""
+        }
+      }
+    }
+  },
+  {
+    $set: {
+      "reviews.comments": {
+        $replaceAll: {
+          input: "$reviews.comments",
+          find: "\r",
+          replacement: ""
+        }
+      }
+    }
+  },
+  {
+    $set: {
+      "reviews.reviewer_name": {
+        $replaceAll: {
+          input: "$reviews.reviewer_name",
+          find: ",",
+          replacement: ""
+        }
+      }
+    }
+  },
+  {
+    $merge: "reviews1"
+  }
+])
+
+db.reviews1.aggregate([
+  {
+    $project: {
+      _id: 0,
+      reviews: 1
+    }
+  },
+  {
+    $out: "reviews2"
+  }
+])
+
+
+db.reviews2.aggregate([
+
+  {
+    $unwind: "$reviews"
+  },
+  {
+    $project: {
+      _id: "$reviews._id",
+      date: "$reviews.date",
+      listing_id: "$reviews.listing_id",
+      reviewer_id: "$reviews.reviewer_id",
+      reviewer_name: "$reviews.reviewer_name",
+      comments: "$reviews.comments"
+    }
+  },
+  {
+    $merge: "reviews"
+  }
+])
+// ???!! how do u do it in 1 query thats wild? also you cant use $facet its over the mongodb memory limit.
+// for my own reference:https://stackoverflow.com/questions/23384244/mongodb-multiple-aggregations-in-single-operation
+
+Task 2.4:
+
+db.listings.update(
+  {},
+  { $unset: { "reviews": "" } },
+  { multi: true }
+)
+
+
+Task 2.5:
+mongoexport --db bedandbreakfast --collection reviews --type csv --fields date,listing_id,"reviewer_name","comments" --out reviews.csv
+
+
+Task 2.6:
+>>
+C:\Users\orbis\Downloads>java -jar csv2sql.jar reviews.csv reviews.sql
+Reading reviews.csv
+Parsing CSV file
+Writing to reviews.sql
+Completed
+>> just run reviews and it works.
